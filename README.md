@@ -8,3 +8,7 @@ SOC: ESP32
 Platform I/O IDE    
 Arduino Frame work    
 
+Down Load    
+    
+    https://github.com/tosa-no-onchan/lib-nishi3    
+    
