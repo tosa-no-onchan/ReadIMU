@@ -12,6 +12,8 @@
 *
 * MPU9250-SPI-turtleboot3 の IMU ライブラリーを使ってみます。
 *  main #4
+*
+* https://esp32.com/viewtopic.php?t=7665
 */
 
 //#undef ESP32
@@ -27,6 +29,8 @@
 
 //#define SerialPort SerialUSB
 //#define SerialPort Serial
+
+#include <time.h>     // for clock()
 
 #include <ros.h>
 #include <sensor_msgs/Imu.h>
@@ -181,7 +185,11 @@ TaskHandle_t th[2];
 SemaphoreHandle_t xMutex = NULL;
 
 void update_motor(void *pvParameters){
+
 	xSemaphoreGive(xMutex);
+
+  int ac_cnt2=0;
+  clock_t t_start2 ,t_end2;
 
 	while(1){
 		//uint32_t t = millis();
@@ -203,8 +211,34 @@ void update_motor(void *pvParameters){
 			tTime[4] = t + (1000000UL / FREQUENCY_IMU_DATA_HZ);
 		}
 
-		//delay(1);
-		sensors.updateIMU();
+    if (t >= tTime[5]){
+      sensors.updateIMU();
+      //tTime[5] = t + 1000000UL / 100;   // 無負荷     負荷時         負荷時(my)  99.5 Hz
+      //tTime[5] = t + 1000000UL / 250;   // 無負荷     負荷時
+      //tTime[5] = t + 1000000UL / 450;   // 無負荷     負荷時
+      //tTime[5] = t + 1000000UL / 600;   // 無負荷     負荷時
+      //tTime[5] = t + 1000000UL / 700;   // 無負荷     負荷時           負荷時(my) 686 Hz
+      tTime[5] = t + 1000000UL / 750;   // 無負荷     負荷時
+      //tTime[5] = t + 1000000UL / 800;   // 無負荷 789  負荷時 760
+      //tTime[5] = t + 1000000UL / 850;   // 無負荷       負荷時 about 800
+      //tTime[5] = t + 1000000UL / 950;   // 無負荷       負荷時
+      ac_cnt2++;
+    }
+
+    //#define XXX_400
+    #if defined(XXX_400)
+    t_end2=clock();
+    double t_d = (double)(t_end2 - t_start2) / CLOCKS_PER_SEC;
+    if(t_d >= 4.0){
+      float hz = (float)ac_cnt2/t_d;
+      SERIAL_PORT.print(F("acc_hz:"));
+      SERIAL_PORT.println(hz, 4);
+      t_start2=clock();
+      ac_cnt2=0;
+    }
+    #endif
+
+
 		//vTaskDelay(1);
 	}
 }
@@ -305,7 +339,6 @@ void setup() {
 
 	delay(100);
 
-
 	xMutex = xSemaphoreCreateMutex();
 
 	if( xMutex != NULL ){
@@ -369,9 +402,9 @@ void loop() {
 		//odom.pose.pose.orientation.z = qz;
 
 		bool ok =true;
-		if(pdTRUE == xSemaphoreTake(xMutex, 10UL)){
-			ok=false;
-		}
+		//if(pdTRUE == xSemaphoreTake(xMutex, 10UL)){   // どっちか、NG
+		//	ok=false;
+		//}
 		// get IMU data
 		imu_msg = sensors.getIMU();
 
@@ -385,9 +418,9 @@ void loop() {
     //sensors.tf_dlt[1]=0.0;
     //sensors.tf_dlt[2]=0.0;
 
-		if(ok){
-			xSemaphoreGive(xMutex);
-		}
+		//if(ok){
+		//	xSemaphoreGive(xMutex);   // どちか、NG
+		//}
 
     //Serial.print(F("x:"));
     //Serial.print(odom.pose.pose.position.x, 4);
@@ -546,7 +579,7 @@ void publishMagMsg(void)
 void updateTFPrefix(bool isConnected)
 {
   static bool isChecked = false;
-  char log_msg[50];
+  char log_msg[80];		// update by nishi 2022.4.25
 
   if (isConnected)
   {
