@@ -183,6 +183,7 @@ static unsigned long tTime[10]={0,0,0,0,0,0,0,0,0,0};
 // Multi task
 TaskHandle_t th[2];
 SemaphoreHandle_t xMutex = NULL;
+//SemaphoreHandle_t xSemaphore = NULL;
 
 void update_motor(void *pvParameters){
 
@@ -217,11 +218,16 @@ void update_motor(void *pvParameters){
       //tTime[5] = t + 1000000UL / 250;   // 無負荷     負荷時
       //tTime[5] = t + 1000000UL / 450;   // 無負荷     負荷時
       //tTime[5] = t + 1000000UL / 600;   // 無負荷     負荷時
-      //tTime[5] = t + 1000000UL / 700;   // 無負荷     負荷時           負荷時(my) 686 Hz
-      tTime[5] = t + 1000000UL / 750;   // 無負荷     負荷時
+      tTime[5] = t + 1000000UL / 700;   // 無負荷     負荷時           負荷時(my) 686 Hz
+      //tTime[5] = t + 1000000UL / 750;   // 無負荷     負荷時
       //tTime[5] = t + 1000000UL / 800;   // 無負荷 789  負荷時 760
       //tTime[5] = t + 1000000UL / 850;   // 無負荷       負荷時 about 800
       //tTime[5] = t + 1000000UL / 950;   // 無負荷       負荷時
+      //tTime[5] = t + 1000000UL / 965;   // 無負荷       負荷時(LSM95DS1) 945
+      //tTime[5] = t + 1000000UL / 968;   // 無負荷       負荷時(LSM95DS1) 949 - 950
+      //tTime[5] = t + 1000000UL / 970;   // 無負荷       負荷時(LSM95DS1) 953
+      //tTime[5] = t + 1000000UL / 980;   // 無負荷       負荷時(LSM95DS1) 963
+      //tTime[5] = t + 1000000UL / 1000;   // 無負荷       負荷時(LSM95DS1) 985
       ac_cnt2++;
     }
 
@@ -339,7 +345,8 @@ void setup() {
 
 	delay(100);
 
-	xMutex = xSemaphoreCreateMutex();
+  vSemaphoreCreateBinary( xMutex );
+	//xMutex = xSemaphoreCreateMutex();
 
 	if( xMutex != NULL ){
 		// start IMU Update Task. add by nishi 2021.8.9
@@ -352,7 +359,6 @@ void setup() {
 			delay(1000);
 		}
 	}
-
 
 	#if defined(ESP32)
 	Serial.println("setup() OK");
@@ -401,9 +407,10 @@ void loop() {
 		//odom.pose.pose.orientation.y = qy;
 		//odom.pose.pose.orientation.z = qz;
 
-		bool ok =true;
-		//if(pdTRUE == xSemaphoreTake(xMutex, 10UL)){   // どっちか、NG
-		//	ok=false;
+		bool ok =false;
+
+		if(pdTRUE == xSemaphoreTake(xMutex, 10UL)){   // どっちか、NG
+			ok=true;
 		//}
 		// get IMU data
 		imu_msg = sensors.getIMU();
@@ -419,8 +426,8 @@ void loop() {
     //sensors.tf_dlt[2]=0.0;
 
 		//if(ok){
-		//	xSemaphoreGive(xMutex);   // どちか、NG
-		//}
+			xSemaphoreGive(xMutex);   // どちか、NG
+		}
 
     //Serial.print(F("x:"));
     //Serial.print(odom.pose.pose.position.x, 4);
